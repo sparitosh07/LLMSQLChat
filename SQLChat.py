@@ -14,8 +14,7 @@ import os
 
 
 
-os.environ["LANGCHAIN_API_KEY"] = 'ls__ae83c5f00e2d4a16b020acb08a8de01e'
-os.environ["LANGCHAIN_TRACING_V2"] = "true"
+
 
 
 def init_database(database: str) -> SQLDatabase:
@@ -46,7 +45,7 @@ def get_sql_chain(db):
     """
     
   sql_prompt = ChatPromptTemplate.from_template(template)
-  llm = ChatCohere(cohere_api_key="4y2CwVZz8ocMUXaA37mDGDKwbmIIhR6SztGEpnCS")
+  llm = ChatCohere(cohere_api_key="")
     #llm = ChatOpenAI(model="gpt-4-0125-preview")
     #llm = ChatGroq(model="mixtral-8x7b-32768", temperature=0)
   
