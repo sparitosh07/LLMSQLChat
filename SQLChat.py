@@ -9,8 +9,10 @@ from operator import itemgetter
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.runnables import RunnablePassthrough
+from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder,FewShotChatMessagePromptTemplate,PromptTemplate
 import getpass
 import os
+# import examples
 
 
 
@@ -22,6 +24,29 @@ def init_database(database: str) -> SQLDatabase:
   return SQLDatabase.from_uri(db_uri)
 
 def get_sql_chain(db):
+  examples =[
+     {
+         "input": "How many policies are inforce for Q1 2024",
+         "query": "SELECT count(*) FROM policies WHERE start_date >= '2024-01-01' "},
+     {
+         "input": "Get the policy with the highest loss",
+         "query": "SELECT p.policy_id, SUM(claim_amount) as ClaimAmount from policies p join claims c on p.policy_id = c.policy_id group by p.policy_id order by SUM(claim_amount) desc limit 1"   
+     }
+     ]
+  
+  example_prompt = ChatPromptTemplate.from_messages(
+     [
+         ("human", "{input}\nSQLQuery:"),
+         ("ai", "{query}"),
+     ])
+    
+  few_shot_prompt = FewShotChatMessagePromptTemplate(
+     example_prompt=example_prompt,
+     examples=examples
+     # input_variables=["input","top_k"],
+    #  input_variables=["input"],
+ )
+
   template = """
     You are a data analyst at a company. You are interacting with a user who is asking you questions about the company's database.
     Based on the table schema below, write a SQL query that would answer the user's question. Take the conversation history into account.
@@ -32,20 +57,20 @@ def get_sql_chain(db):
     
     Write only the SQL query and nothing else. Do not wrap the SQL query in any other text, not even backticks.
     
-    For example:
-    Question: which 3 artists have the most tracks?
-    SQL Query: SELECT ArtistId, COUNT(*) as track_count FROM Track GROUP BY ArtistId ORDER BY track_count DESC LIMIT 3;
-    Question: Name 10 artists
-    SQL Query: SELECT Name FROM Artist LIMIT 10;
-    
     Your turn:
     
-    Question: {question}
+    Question: {input}
     SQL Query:
     """
-    
-  sql_prompt = ChatPromptTemplate.from_template(template)
-  llm = ChatCohere(cohere_api_key="")
+  sql_prompt = ChatPromptTemplate.from_messages(
+    [
+        ('system', template),
+        few_shot_prompt,
+        ('human', '{input}'),
+    ]
+    )
+#   sql_prompt = ChatPromptTemplate.from_template(template)
+  llm = ChatCohere(cohere_api_key="4y2CwVZz8ocMUXaA37mDGDKwbmIIhR6SztGEpnCS")
     #llm = ChatOpenAI(model="gpt-4-0125-preview")
     #llm = ChatGroq(model="mixtral-8x7b-32768", temperature=0)
   
@@ -67,15 +92,17 @@ def get_response(user_query: str, db: SQLDatabase, chat_history: list):
  
   sql_chain = get_sql_chain(db)
   execute_query = QuerySQLDataBaseTool(db=db)
+
   
   template = """
     You are a data analyst at a company. You are interacting with a user who is asking you questions about the company's database.
-    Based on the table schema below, question, sql query, and sql response, write a natural language response.
+    Based on the table schema below, question, sql query, and sql response, write a natural language response. Provide the output in a tabular format
+    wherever possible.
     <SCHEMA>{schema}</SCHEMA>
 
     Conversation History: {chat_history}
     SQL Query: <SQL>{query}</SQL>`
-    User question: {question}
+    User question: {input}
     SQL Response: {response}"""
   
   answer_prompt = ChatPromptTemplate.from_template(template)
@@ -89,10 +116,30 @@ def get_response(user_query: str, db: SQLDatabase, chat_history: list):
   chain = (RunnablePassthrough.assign(query=sql_chain).assign( schema=lambda _: db.get_table_info(),response=itemgetter("query") | execute_query) | answer)
   
   return chain.invoke({
-    "question": user_query,
+    "input": user_query,
     "chat_history": chat_history,
   })
     
+
+def get_response_exmples(user_query: str, db: SQLDatabase, chat_history: list):
+    
+    sql_chain = get_sql_chain(db)
+    execute_query = QuerySQLDataBaseTool(db=db)
+    
+    final_prompt = ChatPromptTemplate.from_messages(
+    [
+        ('system', 'You are a helpful AI Assistant'),
+        few_shot_prompt,
+        ('human', '{input}'),
+    ]
+)
+    llm = ChatCohere(cohere_api_key="4y2CwVZz8ocMUXaA37mDGDKwbmIIhR6SztGEpnCS")
+    answer = final_prompt | llm | StrOutputParser()
+    chain = (RunnablePassthrough.assign(query=sql_chain).assign( schema=lambda _: db.get_table_info(),response=itemgetter("query") | execute_query) | answer)
+  
+    
+
+
 
 if "chat_history" not in st.session_state:
     st.session_state.chat_history = [
