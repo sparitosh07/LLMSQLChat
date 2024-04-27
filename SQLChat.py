@@ -21,6 +21,8 @@ import os
 
 def init_database(database: str) -> SQLDatabase:
   db_uri = r"sqlite:///C:\Users\Paritosh\Desktop\AI\LLM\prop_insurance_database.db"
+  os.environ["LANGCHAIN_API_KEY"] = 'ls__ae83c5f00e2d4a16b020acb08a8de01e'
+  os.environ["LANGCHAIN_TRACING_V2"] = "true"
   return SQLDatabase.from_uri(db_uri)
 
 def get_sql_chain(db):
@@ -49,7 +51,8 @@ def get_sql_chain(db):
 
   template = """
     You are a data analyst at a company. You are interacting with a user who is asking you questions about the company's database.
-    Based on the table schema below, write a SQL query that would answer the user's question. Take the conversation history into account.
+    Based on the table schema below, write a SQL query that would answer the user's question. Never use an foreign key id directly from a table. 
+    Always join with the table to get the required details. Take the conversation history into account.
     
     <SCHEMA>{schema}</SCHEMA>
     
@@ -96,9 +99,8 @@ def get_response(user_query: str, db: SQLDatabase, chat_history: list):
   
   template = """
     You are a data analyst at a company. You are interacting with a user who is asking you questions about the company's database.
-    Based on the table schema below, question, sql query, and sql response, write a natural language response. Provide the output in a tabular format
-    wherever possible.
-    <SCHEMA>{schema}</SCHEMA>
+    Based on the question, sql query, and sql response, write a natural language response. Provide the output in a tabular format wherever possible.
+    Never make up data if it does not exist in the output query. FINANCIAL FIGURES AND AMOUNTS SHOULD ONLY COME FROM THE OUTPUT QUERY. DO NOT CREATE AMOUNTS. 
 
     Conversation History: {chat_history}
     SQL Query: <SQL>{query}</SQL>`
