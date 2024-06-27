@@ -23,7 +23,7 @@ from langchain_core.example_selectors import SemanticSimilarityExampleSelector
 #   return SQLDatabase.from_uri(db_uri)
 
 def init_database(database: str) -> SQLDatabase:
-  db_uri = r"sqlite://///content/drive/MyDrive/insurance_db.db"
+  db_uri = r"sqlite://///insurance_db.db"
   os.environ["LANGCHAIN_API_KEY"] = 'ls__ae83c5f00e2d4a16b020acb08a8de01e'
   os.environ["LANGCHAIN_TRACING_V2"] = "true"
   return SQLDatabase.from_uri(db_uri)
